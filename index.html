@@ -569,7 +569,10 @@ function openDetail(id){
     <div class="form-group">
       <div class="form-row" style="justify-content:space-between">
         <span class="form-label">Unidades</span>
-        <div class="stepper"><button id="q-minus">−</button><span id="q-val">${med.stock||0}</span><button id="q-plus">+</button></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="stepper"><button id="q-minus">−</button><span id="q-val">${med.stock||0}</span><button id="q-plus">+</button></div>
+          <button class="btn-inline blue" id="q-save">Guardar</button>
+        </div>
       </div>
     </div>`;
 
@@ -600,8 +603,7 @@ function openDetail(id){
     const disp=document.getElementById('q-val');
     document.getElementById('q-minus').onclick=()=>{if(sv>0){sv--;disp.textContent=sv;}};
     document.getElementById('q-plus').onclick=()=>{sv++;disp.textContent=sv;};
-    document.getElementById('btnSave').textContent='Guardar stock';
-    document.getElementById('btnSave').onclick=async()=>{
+    document.getElementById('q-save').onclick=async()=>{
       await saveMed({...med,stock:sv});
       closeSheet();
     };
