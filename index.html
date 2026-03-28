@@ -270,19 +270,22 @@ function runOutInfo(med){
   if(slots.length){
     let stock=med.stock||0;
     const base=new Date(); base.setHours(0,0,0,0);
-    let lastDate=null,lastTime=null;
+    let result=null;
     for(let day=0;day<=730;day++){
+      if(stock<=0) break;
+      const dt=new Date(base); dt.setDate(dt.getDate()+day);
+      const lbl=dt.toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+      let lastCovered=null, allOk=true;
       for(let i=0;i<slots.length;i++){
-        if(stock>=slots[i].dose){
-          stock-=slots[i].dose;
-          const dt=new Date(base); dt.setDate(dt.getDate()+day);
-          lastDate=dt; lastTime=slots[i].time;
-        } else {
-          return lastDate?{label:lastDate.toLocaleDateString('es-ES',{day:'numeric',month:'short'}),time:lastTime}:null;
-        }
+        if(stock>=slots[i].dose){ stock-=slots[i].dose; lastCovered=slots[i].time; }
+        else { allOk=false; break; }
       }
+      if(allOk){ result={label:lbl,time:null}; }
+      else if(lastCovered){ result={label:lbl,time:lastCovered}; break; }
+      else { break; }
+      if(stock<=0) break;
     }
-    return lastDate?{label:lastDate.toLocaleDateString('es-ES',{day:'numeric',month:'short'}),time:lastTime}:null;
+    return result;
   }
   const d=daysLeft(med); if(d===null) return null;
   const dt=new Date(); dt.setDate(dt.getDate()+d);
@@ -418,7 +421,7 @@ function renderList() {
     }
     const ic=med.icon||med.emoji||'💊';
     const roi=runOutInfo(med);
-    const daysHTML=d!==null?`<div class="med-days"><div class="med-days-num ${sc}">${d}</div><div class="med-days-label">días</div>${roi?`<div class="med-days-date">${roi.label}</div>${roi.time?`<div class="med-days-date" style="color:var(--text3)">${roi.time} ←</div>`:''}`:''}</div>`:'';
+    const daysHTML=d!==null?`<div class="med-days"><div class="med-days-num ${sc}">${d}</div><div class="med-days-label">días</div>${roi?`<div class="med-days-date">${roi.label}${roi.time?` · ${roi.time}`:''}</div>`:''}</div>`:'';
     return `<div class="med-row" data-id="${med.id}"><div class="med-icon ${st}">${iconHTML(ic)}</div><div class="med-info"><div class="med-name">${med.name}</div><div class="med-dose">${med.dose||''}</div><div class="med-badges">${badges.join('')}</div></div>${daysHTML}<div class="med-arrow">›</div></div>`;
   }).join('')}</div>`;
   document.querySelectorAll('.med-row').forEach(r=>r.addEventListener('click',()=>openDetail(r.dataset.id)));
