@@ -257,12 +257,36 @@ function daysLeft(med) {
   if(!dd||dd<=0)return null;
   return Math.floor((med.stock||0)/dd);
 }
-function runOutDate(med){
-  const d=daysLeft(med);
-  if(d===null) return null;
-  const dt=new Date();
-  dt.setDate(dt.getDate()+d);
-  return dt.toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+function runOutInfo(med){
+  if(med.bottleMode){
+    const d=daysLeft(med); if(d===null) return null;
+    const dt=new Date(); dt.setDate(dt.getDate()+d);
+    return {label:dt.toLocaleDateString('es-ES',{day:'numeric',month:'short'}),time:null};
+  }
+  const slots=(med.schedule||[])
+    .map(s=>({time:typeof s==='string'?s:s.time,dose:typeof s==='string'?0:parseFloat(s.dose)||0}))
+    .filter(s=>s.time&&s.dose>0)
+    .sort((a,b)=>a.time.localeCompare(b.time));
+  if(slots.length){
+    let stock=med.stock||0;
+    const base=new Date(); base.setHours(0,0,0,0);
+    let lastDate=null,lastTime=null;
+    for(let day=0;day<=730;day++){
+      for(let i=0;i<slots.length;i++){
+        if(stock>=slots[i].dose){
+          stock-=slots[i].dose;
+          const dt=new Date(base); dt.setDate(dt.getDate()+day);
+          lastDate=dt; lastTime=slots[i].time;
+        } else {
+          return lastDate?{label:lastDate.toLocaleDateString('es-ES',{day:'numeric',month:'short'}),time:lastTime}:null;
+        }
+      }
+    }
+    return lastDate?{label:lastDate.toLocaleDateString('es-ES',{day:'numeric',month:'short'}),time:lastTime}:null;
+  }
+  const d=daysLeft(med); if(d===null) return null;
+  const dt=new Date(); dt.setDate(dt.getDate()+d);
+  return {label:dt.toLocaleDateString('es-ES',{day:'numeric',month:'short'}),time:null};
 }
 function stockStatus(med){const d=daysLeft(med);if(d===null)return 'ok';const a=med.alertDays||14;if(d<=a)return 'danger';if(d<=a*2)return 'warn';return 'ok';}
 function expStatus(med){if(!med.expiry)return 'ok';const d=diffDays(med.expiry);if(d<0)return 'danger';if(d<=30)return 'warn';return 'ok';}
@@ -393,8 +417,8 @@ function renderList() {
       badges.push(`<span class="badge gray">🕐 ${txt}</span>`);
     }
     const ic=med.icon||med.emoji||'💊';
-    const rod=runOutDate(med);
-    const daysHTML=d!==null?`<div class="med-days"><div class="med-days-num ${sc}">${d}</div><div class="med-days-label">días</div>${rod?`<div class="med-days-date">${rod}</div>`:''}</div>`:'';
+    const roi=runOutInfo(med);
+    const daysHTML=d!==null?`<div class="med-days"><div class="med-days-num ${sc}">${d}</div><div class="med-days-label">días</div>${roi?`<div class="med-days-date">${roi.label}</div>${roi.time?`<div class="med-days-date" style="color:var(--text3)">${roi.time} ←</div>`:''}`:''}</div>`:'';
     return `<div class="med-row" data-id="${med.id}"><div class="med-icon ${st}">${iconHTML(ic)}</div><div class="med-info"><div class="med-name">${med.name}</div><div class="med-dose">${med.dose||''}</div><div class="med-badges">${badges.join('')}</div></div>${daysHTML}<div class="med-arrow">›</div></div>`;
   }).join('')}</div>`;
   document.querySelectorAll('.med-row').forEach(r=>r.addEventListener('click',()=>openDetail(r.dataset.id)));
