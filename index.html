@@ -16,8 +16,22 @@
 :root {
   --bg:#F2F2F7; --card:#FFFFFF; --text:#1C1C1E; --text2:#6C6C70; --text3:#AEAEB2;
   --sep:rgba(60,60,67,.12); --blue:#007AFF; --green:#34C759; --orange:#FF9500;
-  --red:#FF3B30; --radius:16px;
+  --red:#FF3B30; --radius:16px; --toggle-off:#E5E5EA;
+  --badge-green-text:#248A3D; --badge-orange-text:#C93400; --badge-red-text:#D70015;
   --safe-top:env(safe-area-inset-top,0px); --safe-bot:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#1C1C1E; --card:#2C2C2E; --text:#FFFFFF; --text2:#AEAEB2; --text3:#636366;
+    --sep:rgba(84,84,88,.65); --toggle-off:#3A3A3C;
+    --badge-green-text:#30D158; --badge-orange-text:#FF9F0A; --badge-red-text:#FF453A;
+  }
+  .header { background:rgba(28,28,30,.85); }
+  .sheet { background:var(--bg); }
+  .form-input[type="date"] { color-scheme:dark; }
+  .badge.green { color:var(--badge-green-text); }
+  .badge.orange { color:var(--badge-orange-text); }
+  .badge.red { color:var(--badge-red-text); }
 }
 body { font-family:-apple-system,'SF Pro Text','Helvetica Neue',sans-serif; background:var(--bg); color:var(--text); min-height:100dvh; overflow-x:hidden; }
 
@@ -303,7 +317,8 @@ function renderAlerts() {
   const items=[];
   meds.forEach(med=>{
     doseAlerts(med).forEach(a=>{
-      const dtxt=a.dose?` · ${a.dose}ml`:'';
+      const schedUnit=med.bottleMode?'ml':(med.unit||'ud');
+      const dtxt=a.dose?` · ${a.dose} ${schedUnit}`:'';
       items.push({dot:'blue',cls:'dose-now',text:`<strong>${med.name}</strong> <span>— toma ${a.time}${dtxt} (${a.label})</span>`});
     });
     const ss=stockStatus(med),es=expStatus(med),d=daysLeft(med);
@@ -389,7 +404,7 @@ function buildForm(med){
     <div class="form-group">
       <div class="form-row" style="justify-content:space-between">
         <label class="form-label">Es un frasco/jarabe</label>
-        <label class="toggle-wrap"><input type="checkbox" id="f-bottle" ${isSyrup?'checked':''} onchange="toggleBottle()"><span class="toggle-track" id="tt" style="background:${isSyrup?'var(--green)':'#E5E5EA'}"><span class="toggle-thumb" id="th" style="left:${isSyrup?22:2}px"></span></span></label>
+        <label class="toggle-wrap"><input type="checkbox" id="f-bottle" ${isSyrup?'checked':''} onchange="toggleBottle()"><span class="toggle-track" id="tt" style="background:${isSyrup?'var(--green)':'var(--toggle-off)'}"><span class="toggle-thumb" id="th" style="left:${isSyrup?22:2}px"></span></span></label>
       </div>
       <div id="stock-normal" style="${isSyrup?'display:none':''};border-top:1px solid var(--sep)">
         <div class="form-row"><label class="form-label">Unidades actuales</label><input class="form-input" id="f-stock" type="number" min="0" step="0.5" placeholder="0" value="${med.stock??''}"></div>
@@ -425,7 +440,7 @@ window.toggleBottle = function(){
   const on=document.getElementById('f-bottle').checked;
   document.getElementById('stock-normal').style.display=on?'none':'';
   document.getElementById('stock-bottle').style.display=on?'':'none';
-  document.getElementById('tt').style.background=on?'var(--green)':'#E5E5EA';
+  document.getElementById('tt').style.background=on?'var(--green)':'var(--toggle-off)';
   document.getElementById('th').style.left=on?'22px':'2px';
 };
 
