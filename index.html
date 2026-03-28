@@ -338,7 +338,7 @@ onAuthStateChanged(auth, user => {
   if (user) {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appScreen').style.display = 'block';
-    startListening(user.uid);
+    startListening();
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('appScreen').style.display = 'none';
@@ -348,12 +348,12 @@ onAuthStateChanged(auth, user => {
 });
 
 // ── Firestore ─────────────────────────────────────────────
-function medsCol(uid) { return collection(db, 'users', uid, 'meds'); }
+function medsCol() { return collection(db, 'meds'); }
 
-function startListening(uid) {
+function startListening() {
   if (unsubscribe) unsubscribe();
   document.getElementById('medList').innerHTML = '<div class="loading">Cargando…</div>';
-  unsubscribe = onSnapshot(query(medsCol(uid)), snap => {
+  unsubscribe = onSnapshot(query(medsCol()), snap => {
     meds = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     render();
   });
@@ -361,7 +361,7 @@ function startListening(uid) {
 
 async function saveMed(data) {
   if (!currentUser) return;
-  const col = medsCol(currentUser.uid);
+  const col = medsCol();
   if (data.id) {
     const { id, ...rest } = data;
     await setDoc(doc(col, id), rest);
@@ -372,7 +372,7 @@ async function saveMed(data) {
 
 async function deleteMed(id) {
   if (!currentUser) return;
-  await deleteDoc(doc(medsCol(currentUser.uid), id));
+  await deleteDoc(doc(medsCol(), id));
 }
 
 // ── Render ────────────────────────────────────────────────
