@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Medicinas Ares">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#007AFF">
+<meta name="description" content="Seguimiento de medicamentos de Ares">
+<link rel="manifest" href="manifest.json">
 <title>Medicinas · Ares</title>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -682,6 +686,25 @@ function openDetail(id){
 }
 
 setInterval(renderAlerts,60000);
+
+// ── App icon (iOS Add to Home Screen) ─────────────────────
+(function(){
+  const size=512, r=115;
+  const c=document.createElement('canvas');
+  c.width=c.height=size;
+  const ctx=c.getContext('2d');
+  ctx.beginPath();
+  ctx.moveTo(r,0);ctx.lineTo(size-r,0);ctx.arcTo(size,0,size,r,r);
+  ctx.lineTo(size,size-r);ctx.arcTo(size,size,size-r,size,r);
+  ctx.lineTo(r,size);ctx.arcTo(0,size,0,size-r,r);
+  ctx.lineTo(0,r);ctx.arcTo(0,0,r,0,r);ctx.closePath();
+  ctx.fillStyle='#007AFF';ctx.fill();
+  ctx.font='300px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('💊',size/2,size/2+10);
+  const url=c.toDataURL('image/png');
+  const l=document.createElement('link');l.rel='apple-touch-icon';l.href=url;
+  document.head.appendChild(l);
+})();
 </script>
 </body>
 </html>
