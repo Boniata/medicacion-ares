@@ -290,7 +290,7 @@ function runOutInfo(med){
   return {label:dt.toLocaleDateString('es-ES',{day:'numeric',month:'short'}),time:null};
 }
 function stockStatus(med){const d=daysLeft(med);if(d===null)return 'ok';const a=med.alertDays||14;if(d<=a)return 'danger';if(d<=a*2)return 'warn';return 'ok';}
-function expStatus(med){if(!med.expiry)return 'ok';const d=diffDays(med.expiry);if(d<0)return 'danger';if(d<=30)return 'warn';return 'ok';}
+function expStatus(med){if(!med.expiry)return 'ok';const d=diffDays(med.expiry);if(d<0)return 'danger';if(d<=7)return 'warn';return 'ok';}
 function overallStatus(med){const s=stockStatus(med),e=expStatus(med);if(s==='danger'||e==='danger')return 'danger';if(s==='warn'||e==='warn')return 'warn';return 'ok';}
 function doseAlerts(med){
   if(!med.schedule||!med.schedule.length)return[];
