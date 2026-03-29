@@ -290,7 +290,7 @@ function runOutInfo(med){
   return {label:dt.toLocaleDateString('es-ES',{day:'numeric',month:'short'}),time:null};
 }
 function stockStatus(med){const d=daysLeft(med);if(d===null)return 'ok';const a=med.alertDays||14;if(d<=a)return 'danger';if(d<=a*2)return 'warn';return 'ok';}
-function expStatus(med){if(!med.expiry)return 'ok';const d=diffDays(med.expiry);if(d<0)return 'danger';if(d<=30)return 'warn';return 'ok';}
+function expStatus(med){if(!med.expiry)return 'ok';const d=diffDays(med.expiry);if(d<0)return 'danger';if(d<=7)return 'warn';return 'ok';}
 function overallStatus(med){const s=stockStatus(med),e=expStatus(med);if(s==='danger'||e==='danger')return 'danger';if(s==='warn'||e==='warn')return 'warn';return 'ok';}
 function doseAlerts(med){
   if(!med.schedule||!med.schedule.length)return[];
@@ -722,9 +722,12 @@ function scheduleNotifications() {
       const schedMin = parseMin(t);
       const unit = med.bottleMode ? 'ml' : (med.unit || 'ud');
       const doseStr = dose ? ` · ${dose} ${unit}` : '';
+      // ms hasta la próxima toma; si ya pasó hoy, programa para mañana
+      let msToSched = (schedMin - now) * 60000;
+      if (msToSched <= 0) msToSched += 24 * 60 * 60000;
       // Aviso 15 min antes
-      const msWarning = (schedMin - 15 - now) * 60000;
-      if (msWarning > 0 && msWarning <= 12 * 3600000) {
+      const msWarning = msToSched - 15 * 60000;
+      if (msWarning > 0) {
         notifTimeouts.push(setTimeout(() => showNotif(`⏰ ${med.name} en 15 min`, {
           body: `Toma a las ${t}${doseStr}`,
           icon: '/icon.svg', badge: '/icon.svg',
@@ -732,14 +735,11 @@ function scheduleNotifications() {
         }), msWarning));
       }
       // Aviso en el momento
-      const msNow = (schedMin - now) * 60000;
-      if (msNow > 0 && msNow <= 12 * 3600000) {
-        notifTimeouts.push(setTimeout(() => showNotif(`💊 ${med.name} — ahora`, {
-          body: `Hora de la toma${doseStr}`,
-          icon: '/icon.svg', badge: '/icon.svg',
-          tag: `${med.id}-${t}`, renotify: true
-        }), msNow));
-      }
+      notifTimeouts.push(setTimeout(() => showNotif(`💊 ${med.name} — ahora`, {
+        body: `Hora de la toma${doseStr}`,
+        icon: '/icon.svg', badge: '/icon.svg',
+        tag: `${med.id}-${t}`, renotify: true
+      }), msToSched));
     });
   });
 }
