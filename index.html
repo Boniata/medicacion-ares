@@ -687,7 +687,7 @@ async function requestNotifPermission() {
 }
 
 function scheduleNotifications() {
-  if (!swReg || Notification.permission !== 'granted') return;
+  if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
   notifTimeouts.forEach(clearTimeout);
   notifTimeouts = [];
   const now = nowMin();
@@ -703,8 +703,9 @@ function scheduleNotifications() {
       // Aviso 15 min antes
       const msWarning = (schedMin - 15 - now) * 60000;
       if (msWarning > 0 && msWarning <= 12 * 3600000) {
-        notifTimeouts.push(setTimeout(() => {
-          swReg.showNotification(`⏰ ${med.name} en 15 min`, {
+        notifTimeouts.push(setTimeout(async () => {
+          const reg = await navigator.serviceWorker.ready;
+          reg.showNotification(`⏰ ${med.name} en 15 min`, {
             body: `Toma a las ${t}${doseStr}`,
             icon: '/icon.svg', badge: '/icon.svg',
             tag: `${med.id}-${t}-warn`, renotify: false
@@ -714,8 +715,9 @@ function scheduleNotifications() {
       // Aviso en el momento
       const msNow = (schedMin - now) * 60000;
       if (msNow > 0 && msNow <= 12 * 3600000) {
-        notifTimeouts.push(setTimeout(() => {
-          swReg.showNotification(`💊 ${med.name} — ahora`, {
+        notifTimeouts.push(setTimeout(async () => {
+          const reg = await navigator.serviceWorker.ready;
+          reg.showNotification(`💊 ${med.name} — ahora`, {
             body: `Hora de la toma${doseStr}`,
             icon: '/icon.svg', badge: '/icon.svg',
             tag: `${med.id}-${t}`, renotify: true
@@ -735,9 +737,20 @@ function updateNotifBtn() {
 
 document.getElementById('btnNotif').addEventListener('click',async()=>{
   await setupSW();
-  const granted=await requestNotifPermission();
+  const wasGranted = Notification.permission === 'granted';
+  const granted = await requestNotifPermission();
   updateNotifBtn();
-  if(granted) scheduleNotifications();
+  if(granted){
+    scheduleNotifications();
+    if(!wasGranted){
+      // Notificación de prueba para confirmar que funciona
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification('💊 Notificaciones activadas', {
+        body: 'Recibirás un aviso 15 min antes de cada toma y en el momento',
+        icon: '/icon.svg', badge: '/icon.svg'
+      });
+    }
+  }
 });
 
 setupSW().then(()=>{
