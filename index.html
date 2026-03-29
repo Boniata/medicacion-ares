@@ -675,7 +675,10 @@ let notifTimeouts = [];
 
 async function setupSW() {
   if (!('serviceWorker' in navigator)) return;
-  try { swReg = await navigator.serviceWorker.register('/sw.js'); } catch(e) {}
+  try {
+    swReg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+  } catch(e) { console.warn('SW error:', e); }
 }
 
 async function requestNotifPermission() {
@@ -686,8 +689,22 @@ async function requestNotifPermission() {
   return p === 'granted';
 }
 
+async function showNotif(title, options) {
+  if (Notification.permission !== 'granted') return;
+  // Intenta SW, si falla usa Notification directamente
+  try {
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, rej) => setTimeout(() => rej('timeout'), 3000))
+    ]);
+    await reg.showNotification(title, options);
+  } catch(e) {
+    try { new Notification(title, options); } catch(e2) { console.warn('Notif error:', e, e2); }
+  }
+}
+
 function scheduleNotifications() {
-  if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   notifTimeouts.forEach(clearTimeout);
   notifTimeouts = [];
   const now = nowMin();
@@ -703,26 +720,20 @@ function scheduleNotifications() {
       // Aviso 15 min antes
       const msWarning = (schedMin - 15 - now) * 60000;
       if (msWarning > 0 && msWarning <= 12 * 3600000) {
-        notifTimeouts.push(setTimeout(async () => {
-          const reg = await navigator.serviceWorker.ready;
-          reg.showNotification(`⏰ ${med.name} en 15 min`, {
-            body: `Toma a las ${t}${doseStr}`,
-            icon: '/icon.svg', badge: '/icon.svg',
-            tag: `${med.id}-${t}-warn`, renotify: false
-          });
-        }, msWarning));
+        notifTimeouts.push(setTimeout(() => showNotif(`⏰ ${med.name} en 15 min`, {
+          body: `Toma a las ${t}${doseStr}`,
+          icon: '/icon.svg', badge: '/icon.svg',
+          tag: `${med.id}-${t}-warn`, renotify: false
+        }), msWarning));
       }
       // Aviso en el momento
       const msNow = (schedMin - now) * 60000;
       if (msNow > 0 && msNow <= 12 * 3600000) {
-        notifTimeouts.push(setTimeout(async () => {
-          const reg = await navigator.serviceWorker.ready;
-          reg.showNotification(`💊 ${med.name} — ahora`, {
-            body: `Hora de la toma${doseStr}`,
-            icon: '/icon.svg', badge: '/icon.svg',
-            tag: `${med.id}-${t}`, renotify: true
-          });
-        }, msNow));
+        notifTimeouts.push(setTimeout(() => showNotif(`💊 ${med.name} — ahora`, {
+          body: `Hora de la toma${doseStr}`,
+          icon: '/icon.svg', badge: '/icon.svg',
+          tag: `${med.id}-${t}`, renotify: true
+        }), msNow));
       }
     });
   });
@@ -735,27 +746,23 @@ function updateNotifBtn() {
   btn.title=Notification.permission==='granted'?'Notificaciones activas':'Activar notificaciones';
 }
 
-document.getElementById('btnNotif').addEventListener('click',async()=>{
+document.getElementById('btnNotif').addEventListener('click', async () => {
   await setupSW();
-  const wasGranted = Notification.permission === 'granted';
   const granted = await requestNotifPermission();
   updateNotifBtn();
-  if(granted){
+  if (granted) {
     scheduleNotifications();
-    if(!wasGranted){
-      // Notificación de prueba para confirmar que funciona
-      const reg = await navigator.serviceWorker.ready;
-      reg.showNotification('💊 Notificaciones activadas', {
-        body: 'Recibirás un aviso 15 min antes de cada toma y en el momento',
-        icon: '/icon.svg', badge: '/icon.svg'
-      });
-    }
+    // Siempre muestra confirmación al pulsar el botón
+    await showNotif('💊 Notificaciones activas', {
+      body: 'Recibirás un aviso 15 min antes y en el momento de cada toma',
+      icon: '/icon.svg', badge: '/icon.svg'
+    });
   }
 });
 
-setupSW().then(()=>{
+setupSW().then(() => {
   updateNotifBtn();
-  if(Notification.permission==='granted') scheduleNotifications();
+  if (Notification.permission === 'granted') scheduleNotifications();
 });
 
 // ── App icon (iOS Add to Home Screen) ─────────────────────
