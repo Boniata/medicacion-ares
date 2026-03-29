@@ -691,15 +691,20 @@ async function requestNotifPermission() {
 
 async function showNotif(title, options) {
   if (Notification.permission !== 'granted') return;
-  // Intenta SW, si falla usa Notification directamente
   try {
     const reg = await Promise.race([
       navigator.serviceWorker.ready,
-      new Promise((_, rej) => setTimeout(() => rej('timeout'), 3000))
+      new Promise((_, rej) => setTimeout(() => rej('timeout'), 4000))
     ]);
-    await reg.showNotification(title, options);
+    // En iOS solo funciona desde el propio SW — usamos postMessage
+    if (reg.active) {
+      reg.active.postMessage({ type: 'SHOW_NOTIFICATION', title, options });
+    } else {
+      await reg.showNotification(title, options);
+    }
   } catch(e) {
-    try { new Notification(title, options); } catch(e2) { console.warn('Notif error:', e, e2); }
+    // Fallback para navegadores no-iOS
+    try { new Notification(title, options); } catch(e2) {}
   }
 }
 
