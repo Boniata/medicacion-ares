@@ -671,7 +671,7 @@ setInterval(()=>{renderAlerts();scheduleNotifications();},60000);
 
 // ── Notifications ─────────────────────────────────────────
 let swReg = null;
-let notifTimeouts = [];
+let notifTimeouts = []; // [{id, due}]  — 'due' es timestamp Date.now() en ms
 
 async function setupSW() {
   if (!('serviceWorker' in navigator)) return;
@@ -710,36 +710,47 @@ async function showNotif(title, options) {
 
 function scheduleNotifications() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  notifTimeouts.forEach(clearTimeout);
-  notifTimeouts = [];
-  const now = nowMin();
+  const now = Date.now();
+  // Elimina los ya disparados; cancela los lejanos (>90 s) para reprogramarlos
+  // Los que disparan en ≤90 s se conservan para evitar la race condition con setInterval
+  notifTimeouts = notifTimeouts.filter(({id, due}) => {
+    if (due <= now) return false;
+    if (due - now > 90000) { clearTimeout(id); return false; }
+    return true;
+  });
+  const scheduled = new Set(notifTimeouts.map(({due}) => due));
+
   meds.forEach(med => {
     if (!med.schedule) return;
     med.schedule.forEach(s => {
-      const t = typeof s === 'string' ? s : s.time;
+      const t    = typeof s === 'string' ? s : s.time;
       const dose = typeof s === 'string' ? '' : s.dose;
       if (!t) return;
-      const schedMin = parseMin(t);
-      const unit = med.bottleMode ? 'ml' : (med.unit || 'ud');
+      const [h, m] = t.split(':').map(Number);
+      const dt = new Date(); dt.setHours(h, m, 0, 0);
+      let due = dt.getTime();
+      if (due <= now) due += 86400000; // si ya pasó hoy → mañana
+      const unit    = med.bottleMode ? 'ml' : (med.unit || 'ud');
       const doseStr = dose ? ` · ${dose} ${unit}` : '';
-      // ms hasta la próxima toma; si ya pasó hoy, programa para mañana
-      let msToSched = (schedMin - now) * 60000;
-      if (msToSched <= 0) msToSched += 24 * 60 * 60000;
+      // Aviso en el momento
+      if (!scheduled.has(due)) {
+        scheduled.add(due);
+        notifTimeouts.push({ due, id: setTimeout(() => showNotif(`💊 ${med.name} — ahora`, {
+          body: `Hora de la toma${doseStr}`,
+          icon: '/icon.svg', badge: '/icon.svg',
+          tag: `${med.id}-${t}`, renotify: true
+        }), due - now) });
+      }
       // Aviso 15 min antes
-      const msWarning = msToSched - 15 * 60000;
-      if (msWarning > 0) {
-        notifTimeouts.push(setTimeout(() => showNotif(`⏰ ${med.name} en 15 min`, {
+      const duew = due - 15 * 60000;
+      if (duew > now && !scheduled.has(duew)) {
+        scheduled.add(duew);
+        notifTimeouts.push({ due: duew, id: setTimeout(() => showNotif(`⏰ ${med.name} en 15 min`, {
           body: `Toma a las ${t}${doseStr}`,
           icon: '/icon.svg', badge: '/icon.svg',
           tag: `${med.id}-${t}-warn`, renotify: false
-        }), msWarning));
+        }), duew - now) });
       }
-      // Aviso en el momento
-      notifTimeouts.push(setTimeout(() => showNotif(`💊 ${med.name} — ahora`, {
-        body: `Hora de la toma${doseStr}`,
-        icon: '/icon.svg', badge: '/icon.svg',
-        tag: `${med.id}-${t}`, renotify: true
-      }), msToSched));
     });
   });
 }
@@ -763,6 +774,10 @@ document.getElementById('btnNotif').addEventListener('click', async () => {
       icon: '/icon.svg', badge: '/icon.svg'
     });
   }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Notification.permission === 'granted') scheduleNotifications();
 });
 
 setupSW().then(() => {
