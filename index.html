@@ -225,6 +225,13 @@ function mlConsumedToday(med) {
     return (t&&parseMin(t)<=now&&d>0)?sum+d:sum;
   },0);
 }
+function scheduledDosesToday(med) {
+  if(!med.schedule||!med.schedule.length) return 0;
+  return med.schedule.reduce((sum,s)=>{
+    const d=typeof s==='string'?0:parseFloat(s.dose)||0;
+    return sum+d;
+  },0);
+}
 function mlRemaining(med) {
   if(!med.bottleMode||med.mlRestantes==null||!med.mlPerDay) return null;
   const ref=med.lastUpdated||today();
@@ -569,12 +576,9 @@ function openDetail(id){
 
   function calcNewBottle(){
     if(!med.bottleMl) return '';
-    const mlGiven=med.schedule&&med.schedule.length?med.schedule.reduce((sum,s)=>{
-      const t=typeof s==='string'?s:s.time;
-      const d=typeof s==='string'?0:parseFloat(s.dose)||0;
-      return(t&&parseMin(t)<=nowMin())?sum+d:sum;
-    },0):0;
-    return Math.max(0,Math.round((med.bottleMl-mlGiven)*10)/10);
+    // Fix Issue 1: Return full bottle ml (don't subtract doses taken today)
+    // because we save with lastUpdated:today() and mlRemaining will handle today's doses
+    return Math.round(med.bottleMl*10)/10;
   }
 
   const quickHTML=isSyrup?`
@@ -629,7 +633,9 @@ function openDetail(id){
     document.getElementById('q-save').onclick=async()=>{
       const v=parseFloat(document.getElementById('q-ml').value);
       if(isNaN(v)||v<0)return;
-      await saveMed({...med,mlRestantes:v,lastUpdated:today()});
+      // Fix Issue 1: Add back today's consumed ml to store raw midnight value
+      const rawMl = v + mlConsumedToday(med);
+      await saveMed({...med,mlRestantes:rawMl,lastUpdated:today()});
       closeSheet();
     };
     document.getElementById('q-newbottle').onclick=()=>{
@@ -639,6 +645,7 @@ function openDetail(id){
     document.getElementById('nb-confirm').onclick=async()=>{
       const expiry=document.getElementById('nb-expiry').value;
       if(!expiry){document.getElementById('nb-expiry').focus();return;}
+      // Fix Issue 1: calcNewBottle already accounts for doses taken, store as-is
       await saveMed({...med,mlRestantes:calcNewBottle(),lastUpdated:today(),expiry});
       closeSheet();
     };
@@ -648,7 +655,9 @@ function openDetail(id){
     document.getElementById('q-minus').onclick=()=>{if(sv>0){sv--;disp.textContent=sv;}};
     document.getElementById('q-plus').onclick=()=>{sv++;disp.textContent=sv;};
     document.getElementById('q-save').onclick=async()=>{
-      await saveMed({...med,stock:sv,lastUpdated:today()});
+      // Fix Issue 1: Add back today's scheduled doses to store raw midnight value
+      const rawStock = sv + scheduledDosesToday(med);
+      await saveMed({...med,stock:rawStock,lastUpdated:today()});
       closeSheet();
     };
   }
@@ -809,6 +818,7 @@ const shownMissedNotifs = new Set();
 function checkMissedNotifications() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const now = Date.now();
+  const todayDate = today(); // Fix Issue 2: Include date in tag for daily reset
   meds.forEach(med => {
     if (!med.schedule) return;
     med.schedule.forEach(s => {
@@ -820,7 +830,7 @@ function checkMissedNotifications() {
       const dueMs = dt.getTime();
       const elapsed = now - dueMs; // ms desde que debía sonar
       if (elapsed > 0 && elapsed <= 30 * 60000) { // pasó hace ≤30 min
-        const tag = `${med.id}-${t}-missed`;
+        const tag = `${med.id}-${t}-missed-${todayDate}`; // Fix Issue 2: Include date
         // Skip if already shown
         if (shownMissedNotifs.has(tag)) return;
 
