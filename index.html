@@ -266,7 +266,7 @@ function runOutInfo(med){
     .filter(s=>s.time&&s.dose>0)
     .sort((a,b)=>a.time.localeCompare(b.time));
   if(slots.length){
-    let stock=med.stock||0;
+    let stock=effectiveStock(med);
     const base=new Date(); base.setHours(0,0,0,0);
     let result=null;
     for(let day=0;day<=730;day++){
@@ -371,15 +371,16 @@ function renderList() {
   const sorted=[...meds].sort((a,b)=>order[overallStatus(a)]-order[overallStatus(b)]);
   c.innerHTML=`<div class="section-label">Medicamentos (${meds.length})</div><div class="card-list">${sorted.map(med=>{
     const st=overallStatus(med),d=daysLeft(med),ml=med.bottleMode?mlRemaining(med):null;
+    const effStock=Math.round(effectiveStock(med));
     const badges=[];
     const sc=stockStatus(med),cls=sc==='danger'?'red':sc==='warn'?'orange':'green';
     if(med.bottleMode){
       if(ml!==null) badges.push(`<span class="badge ${cls}">~${Math.round(ml)} ml</span>`);
       else badges.push(`<span class="badge gray">Jarabe</span>`);
     } else if(d!==null){
-      badges.push(`<span class="badge ${cls}">${med.stock} ${med.unit||'ud'}</span>`);
+      badges.push(`<span class="badge ${cls}">${effStock} ${med.unit||'ud'}</span>`);
     } else {
-      badges.push(`<span class="badge gray">${med.stock||0} ${med.unit||'ud'}</span>`);
+      badges.push(`<span class="badge gray">${effStock} ${med.unit||'ud'}</span>`);
     }
     if(med.expiry){const ec=expStatus(med),cls=ec==='danger'?'red':ec==='warn'?'orange':'gray';badges.push(`<span class="badge ${cls}">Cad. ${fmt(med.expiry)}</span>`);}
     if(med.schedule&&med.schedule.length){
@@ -632,7 +633,7 @@ function openDetail(id){
       closeSheet();
     };
   } else {
-    let sv=med.stock||0;
+    let sv=Math.round(effectiveStock(med));
     const disp=document.getElementById('q-val');
     document.getElementById('q-minus').onclick=()=>{if(sv>0){sv--;disp.textContent=sv;}};
     document.getElementById('q-plus').onclick=()=>{sv++;disp.textContent=sv;};
